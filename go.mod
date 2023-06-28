@@ -8,4 +8,8 @@ require (
 	golang.org/x/tools v0.1.12
 )
 
-require github.com/sergi/go-diff v1.3.1 // indirect
+require github.com/sergi/go-diff v1.3.1
+
+replace github.com/truls/cofaas-go/stubs/grpc v0.0.0 => ./stubs/grpc
+
+replace github.com/truls/cofaas-go/stubs/net v0.0.0 => ./stubs/net
