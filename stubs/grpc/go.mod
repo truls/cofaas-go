@@ -1,3 +1,3 @@
-module github.com/truls/cofaas-go/stubs/grpc
+module grpc
 
 go 1.20
