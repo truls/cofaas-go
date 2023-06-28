@@ -3,7 +3,6 @@ module github.com/truls/cofaas-go
 go 1.20
 
 require (
-	github.com/markphelps/optional v0.10.0
 	github.com/moznion/go-optional v0.10.0
 	golang.org/x/mod v0.11.0
 	golang.org/x/tools v0.1.12
