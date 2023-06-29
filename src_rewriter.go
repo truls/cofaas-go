@@ -2,7 +2,6 @@ package cofaas
 
 import (
 	"bytes"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -18,7 +17,7 @@ type srcRewriter struct {
 
 type srcRewritten struct {
 	Rewritten
-	fset *token.FileSet
+	fset     *token.FileSet
 	ast_file *ast.File
 }
 
@@ -50,7 +49,6 @@ func applyFunction(c *astutil.Cursor) bool {
 	return true
 }
 
-
 func (r *srcRewriter) Rewrite(file string) (Rewritten, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
@@ -61,7 +59,7 @@ func (r *srcRewriter) Rewrite(file string) (Rewritten, error) {
 	astutil.Apply(f, nil, applyFunction)
 
 	return &srcRewritten{
-		fset: fset,
+		fset:     fset,
 		ast_file: f,
 	}, nil
 }
@@ -70,8 +68,6 @@ func (r *srcRewritten) Format() (string, error) {
 	var writer bytes.Buffer
 	printer.Fprint(&writer, r.fset, r.ast_file)
 	res := writer.String()
-	fmt.Println("Formatting")
-	fmt.Println(res)
 	return res, nil
 }
 

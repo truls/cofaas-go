@@ -1,72 +1,36 @@
 package cofaas
 
 import (
-	"os"
-	"path"
-	"testing"
 	"flag"
-
-	"github.com/sergi/go-diff/diffmatchpatch"
+	"os"
+	"testing"
 )
 
 var (
-	update = flag.Bool("update", false, "update the golden files of this test")
+	update  = flag.Bool("update", false, "update the golden files of this test")
+	verbose = flag.Bool("verbose", false, "be verbose when test fails")
 )
 
-func getTestInput(file string) string {
-	return path.Join("testdata", file);
-}
+func rewrite(file string, r Rewriter) (string, error) {
 
-func getGoldenFileName(file string) string {
-	return getTestInput(file) + ".golden"
-}
-
-func readGoldenFile(file string) (string, error) {
-	contents, err := os.ReadFile(getGoldenFileName(file))
+	res, err := r.Rewrite(file)
 	if err != nil {
 		return "", err
 	}
 
-	return string(contents), err
-}
-
-func writeGoldenFile(file string) error {
-	return os.WriteFile(file, []byte(file), 0644)
-}
-
-func getComparison(a string, b string) string {
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(b, a, false)
-	return dmp.DiffPrettyText(diffs)
+	return res.Format()
 }
 
 func testRewriter(t *testing.T, f string) {
-	fn := getTestInput(f)
-	r, err := GetRewriter(fn)
+	r, err := GetRewriter(f)
 	if err != nil {
 		t.Error(err)
 	}
 
-	res, err := r.Rewrite(fn)
-	if err != nil {
-		t.Error(err)
-	}
-	expected, err := readGoldenFile(f)
+	compareGoldenFile(t, f, func(file string) (string, error) {
+		return rewrite(file, r)
+	}, *update, *verbose)
 
-	resfmt, err := res.Format()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if *update {
-		if err := res.Write(getGoldenFileName(f)); err != nil {
-			t.Error(err)
-		}
-	} else {
-		if resfmt != expected {
-			t.Errorf("Golden file mismatch\n\n%s", getComparison(resfmt, expected))
-		}
-	}
 }
 
 func TestRewriteModule(t *testing.T) {
@@ -76,7 +40,6 @@ func TestRewriteModule(t *testing.T) {
 func TestRewriteFile(t *testing.T) {
 	testRewriter(t, "producer.go")
 }
-
 
 func TestMain(m *testing.M) {
 	flag.Parse()
