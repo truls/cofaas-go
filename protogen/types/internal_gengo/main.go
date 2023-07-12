@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"github.com/truls/cofaas-go/protogen/types/internal_gengo/genid"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
+	//	"google.golang.org/protobuf/runtime/protoimpl"
 
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
@@ -31,9 +31,8 @@ var SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPT
 // GenerateVersionMarkers specifies whether to generate version markers.
 var GenerateVersionMarkers = true
 
-// Standard library dependencies.
+// // Standard library dependencies.
 const (
-	base64Package  = protogen.GoImportPath("encoding/base64")
 	mathPackage    = protogen.GoImportPath("math")
 	reflectPackage = protogen.GoImportPath("reflect")
 	sortPackage    = protogen.GoImportPath("sort")
@@ -76,17 +75,6 @@ func GenerateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	g.P(packageDoc, "package ", f.GoPackageName)
 	g.P()
 
-	// Emit a static check that enforces a minimum version of the proto package.
-	if GenerateVersionMarkers {
-		g.P("const (")
-		g.P("// Verify that this generated code is sufficiently up-to-date.")
-		g.P("_ = ", protoimplPackage.Ident("EnforceVersion"), "(", protoimpl.GenVersion, " - ", protoimplPackage.Ident("MinVersion"), ")")
-		g.P("// Verify that runtime/protoimpl is sufficiently up-to-date.")
-		g.P("_ = ", protoimplPackage.Ident("EnforceVersion"), "(", protoimplPackage.Ident("MaxVersion"), " - ", protoimpl.GenVersion, ")")
-		g.P(")")
-		g.P()
-	}
-
 	for i, imps := 0, f.Desc.Imports(); i < imps.Len(); i++ {
 		genImport(gen, g, f, imps.Get(i))
 	}
@@ -96,9 +84,6 @@ func GenerateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	for _, message := range f.allMessages {
 		genMessage(g, f, message)
 	}
-	genExtensions(g, f)
-
-	genReflectFileDescriptor(gen, g, f)
 
 	return g
 }
@@ -283,7 +268,7 @@ func genEnum(g *protogen.GeneratedFile, f *fileInfo, e *enumInfo) {
 	g.P("}")
 	g.P()
 
-	genEnumReflectMethods(g, f, e)
+	//genEnumReflectMethods(g, f, e)
 
 	// UnmarshalJSON method.
 	if e.genJSONMethod && e.Desc.Syntax() == protoreflect.Proto2 {
@@ -307,7 +292,7 @@ func genEnum(g *protogen.GeneratedFile, f *fileInfo, e *enumInfo) {
 		}
 		g.P("// Deprecated: Use ", e.GoIdent, ".Descriptor instead.")
 		g.P("func (", e.GoIdent, ") EnumDescriptor() ([]byte, []int) {")
-		g.P("return ", rawDescVarName(f), "GZIP(), []int{", strings.Join(indexes, ","), "}")
+		//g.P("return ", rawDescVarName(f), "GZIP(), []int{", strings.Join(indexes, ","), "}")
 		g.P("}")
 		g.P()
 		f.needRawDesc = true
@@ -330,15 +315,15 @@ func genMessage(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
 	g.P("}")
 	g.P()
 
-	genMessageKnownFunctions(g, f, m)
-	genMessageDefaultDecls(g, f, m)
-	genMessageMethods(g, f, m)
-	genMessageOneofWrapperTypes(g, f, m)
+	// genMessageKnownFunctions(g, f, m)
+	// genMessageDefaultDecls(g, f, m)
+	// genMessageMethods(g, f, m)
+	// genMessageOneofWrapperTypes(g, f, m)
 }
 
 func genMessageFields(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
 	sf := f.allMessageFieldsByPtr[m]
-	genMessageInternalFields(g, f, m, sf)
+	//genMessageInternalFields(g, f, m, sf)
 	for _, field := range m.Fields {
 		genMessageField(g, f, m, field, sf)
 	}
@@ -365,56 +350,11 @@ func genMessageInternalFields(g *protogen.GeneratedFile, f *fileInfo, m *message
 }
 
 func genMessageField(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo, field *protogen.Field, sf *structFields) {
-	if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() {
-		// It would be a bit simpler to iterate over the oneofs below,
-		// but generating the field here keeps the contents of the Go
-		// struct in the same order as the contents of the source
-		// .proto file.
-		if oneof.Fields[0] != field {
-			return // only generate for first appearance
-		}
-
-		tags := structTags{
-			{"protobuf_oneof", string(oneof.Desc.Name())},
-		}
-		if m.isTracked {
-			tags = append(tags, gotrackTags...)
-		}
-
-		g.Annotate(m.GoIdent.GoName+"."+oneof.GoName, oneof.Location)
-		leadingComments := oneof.Comments.Leading
-		if leadingComments != "" {
-			leadingComments += "\n"
-		}
-		ss := []string{fmt.Sprintf(" Types that are assignable to %s:\n", oneof.GoName)}
-		for _, field := range oneof.Fields {
-			ss = append(ss, "\t*"+field.GoIdent.GoName+"\n")
-		}
-		leadingComments += protogen.Comments(strings.Join(ss, ""))
-		g.P(leadingComments,
-			oneof.GoName, " ", oneofInterfaceName(oneof), tags)
-		sf.append(oneof.GoName)
-		return
-	}
 	goType, pointer := fieldGoType(g, f, field)
 	if pointer {
 		goType = "*" + goType
 	}
-	tags := structTags{
-		{"protobuf", fieldProtobufTagValue(field)},
-		{"json", fieldJSONTagValue(field)},
-	}
-	if field.Desc.IsMap() {
-		key := field.Message.Fields[0]
-		val := field.Message.Fields[1]
-		tags = append(tags, structTags{
-			{"protobuf_key", fieldProtobufTagValue(key)},
-			{"protobuf_val", fieldProtobufTagValue(val)},
-		}...)
-	}
-	if m.isTracked {
-		tags = append(tags, gotrackTags...)
-	}
+	tags := structTags{}
 
 	name := field.GoName
 	if field.Desc.IsWeak() {
@@ -494,12 +434,6 @@ func genMessageDefaultDecls(g *protogen.GeneratedFile, f *fileInfo, m *messageIn
 		g.P(")")
 	}
 	g.P()
-}
-
-func genMessageMethods(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
-	genMessageBaseMethods(g, f, m)
-	genMessageGetterMethods(g, f, m)
-	genMessageSetterMethods(g, f, m)
 }
 
 func genMessageBaseMethods(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
@@ -720,73 +654,6 @@ func fieldDefaultValue(g *protogen.GeneratedFile, f *fileInfo, m *messageInfo, f
 
 func fieldJSONTagValue(field *protogen.Field) string {
 	return string(field.Desc.Name()) + ",omitempty"
-}
-
-func genExtensions(g *protogen.GeneratedFile, f *fileInfo) {
-	if len(f.allExtensions) == 0 {
-		return
-	}
-
-	g.P("var ", extensionTypesVarName(f), " = []", protoimplPackage.Ident("ExtensionInfo"), "{")
-	for _, x := range f.allExtensions {
-		g.P("{")
-		g.P("ExtendedType: (*", x.Extendee.GoIdent, ")(nil),")
-		goType, pointer := fieldGoType(g, f, x.Extension)
-		if pointer {
-			goType = "*" + goType
-		}
-		g.P("ExtensionType: (", goType, ")(nil),")
-		g.P("Field: ", x.Desc.Number(), ",")
-		g.P("Name: ", strconv.Quote(string(x.Desc.FullName())), ",")
-		g.P("Tag: ", strconv.Quote(fieldProtobufTagValue(x.Extension)), ",")
-		g.P("Filename: ", strconv.Quote(f.Desc.Path()), ",")
-		g.P("},")
-	}
-	g.P("}")
-	g.P()
-
-	// Group extensions by the target message.
-	var orderedTargets []protogen.GoIdent
-	allExtensionsByTarget := make(map[protogen.GoIdent][]*extensionInfo)
-	allExtensionsByPtr := make(map[*extensionInfo]int)
-	for i, x := range f.allExtensions {
-		target := x.Extendee.GoIdent
-		if len(allExtensionsByTarget[target]) == 0 {
-			orderedTargets = append(orderedTargets, target)
-		}
-		allExtensionsByTarget[target] = append(allExtensionsByTarget[target], x)
-		allExtensionsByPtr[x] = i
-	}
-	for _, target := range orderedTargets {
-		g.P("// Extension fields to ", target, ".")
-		g.P("var (")
-		for _, x := range allExtensionsByTarget[target] {
-			xd := x.Desc
-			typeName := xd.Kind().String()
-			switch xd.Kind() {
-			case protoreflect.EnumKind:
-				typeName = string(xd.Enum().FullName())
-			case protoreflect.MessageKind, protoreflect.GroupKind:
-				typeName = string(xd.Message().FullName())
-			}
-			fieldName := string(xd.Name())
-
-			leadingComments := x.Comments.Leading
-			if leadingComments != "" {
-				leadingComments += "\n"
-			}
-			leadingComments += protogen.Comments(fmt.Sprintf(" %v %v %v = %v;\n",
-				xd.Cardinality(), typeName, fieldName, xd.Number()))
-			leadingComments = appendDeprecationSuffix(leadingComments,
-				x.Desc.ParentFile(),
-				x.Desc.Options().(*descriptorpb.FieldOptions).GetDeprecated())
-			g.P(leadingComments,
-				"E_", x.GoIdent, " = &", extensionTypesVarName(f), "[", allExtensionsByPtr[x], "]",
-				trailingComment(x.Comments.Trailing))
-		}
-		g.P(")")
-		g.P()
-	}
 }
 
 // genMessageOneofWrapperTypes generates the oneof wrapper types and
