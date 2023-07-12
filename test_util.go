@@ -25,8 +25,8 @@ func readGoldenFile(file string) (string, error) {
 	return string(contents), err
 }
 
-func writeGoldenFile(file string) error {
-	return os.WriteFile(file, []byte(file), 0644)
+func writeGoldenFile(goldenFile string, contents string) error {
+	return os.WriteFile(getGoldenFileName(goldenFile), []byte(contents), 0644)
 }
 
 func getComparison(a string, b string) string {
@@ -49,7 +49,7 @@ func compareGoldenFile(t *testing.T, goldenFile string, transformer func(string)
 	}
 
 	if doUpdate {
-		if err := writeGoldenFile(actual); err != nil {
+		if err := writeGoldenFile(goldenFile, actual); err != nil {
 			t.Error(err)
 		}
 	} else {

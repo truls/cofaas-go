@@ -168,11 +168,6 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 		return
 	}
 
-	g.P("// This is a compile-time assertion to ensure that this generated file")
-	g.P("// is compatible with the grpc package it is being compiled against.")
-	g.P("// Requires gRPC-Go v1.32.0 or later.")
-	g.P("const _ = ", grpcPackage.Ident("SupportPackageIsVersion7")) // When changing, update version number above.
-	g.P()
 	for _, service := range file.Services {
 		genService(gen, file, g, service)
 	}
@@ -206,6 +201,7 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P("}")
 	g.P()
 
+	// Client 
 	// Client structure.
 	helper.generateClientStruct(g, clientName)
 
@@ -213,10 +209,12 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	if service.Desc.Options().(*descriptorpb.ServiceOptions).GetDeprecated() {
 		g.P(deprecationComment)
 	}
-	g.P("func New", clientName, " (cc ", grpcPackage.Ident("ClientConnInterface"), ") ", clientName, " {")
+	g.P("func New", clientName, " (cc interface{}) ", clientName, " {")
 	helper.generateNewClientDefinitions(g, service, clientName)
 	g.P("}")
 	g.P()
+
+	
 
 	var methodIndex, streamIndex int
 	// Client method implementations.
@@ -305,6 +303,7 @@ func genClientMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	service := method.Parent
 	fmSymbol := helper.formatFullMethodSymbol(service, method)
 
+	// TODO: Look at other rpc interface here
 	if method.Desc.Options().(*descriptorpb.MethodOptions).GetDeprecated() {
 		g.P(deprecationComment)
 	}
