@@ -40,7 +40,7 @@ type GreeterClient interface {
 type unimplementedGreeterClient struct{}
 
 func (c *unimplementedGreeterClient) SayHello(ctx context.Context, in *HelloRequest, opts ...interface{}) (*HelloReply, error) {
-	return nil, errors.New("Method ", service.GoName, "Client ", "is not implemented")
+	return nil, errors.New("Method GreeterClient is not implemented")
 }
 
 var clientImplementation GreeterClient = unimplementedGreeterClient{}
@@ -49,7 +49,7 @@ func NewGreeterClient(cc interface{}) GreeterClient {
 	return clientImplementation
 }
 
-func NewGreeterClientImplementation(impl GreeterClient) {
+func SetGreeterClientImplementation(impl GreeterClient) {
 	clientImplementation = impl
 }
 
@@ -61,6 +61,8 @@ type GreeterServer interface {
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
 	mustEmbedUnimplementedGreeterServer()
 }
+
+var ServerImplementation GreeterServer = UnimplementedGreeterServer{}
 
 // UnimplementedGreeterServer must be embedded to have forward compatible implementations.
 type UnimplementedGreeterServer struct {

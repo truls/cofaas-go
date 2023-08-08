@@ -30,9 +30,6 @@ import (
 const (
 	contextPackage = protogen.GoImportPath("context")
 	errorsPackage  = protogen.GoImportPath("errors")
-	//grpcPackage    = protogen.GoImportPath("google.golang.org/grpc")
-	//codesPackage   = protogen.GoImportPath("google.golang.org/grpc/codes")
-	//statusPackage  = protogen.GoImportPath("google.golang.org/grpc/status")
 )
 
 type serviceGenerateHelperInterface interface {
@@ -96,7 +93,7 @@ func (serviceGenerateHelper) generateUnimplementedServerType(gen *protogen.Plugi
 			nilArg = "nil,"
 		}
 		g.P("func (Unimplemented", serverType, ") ", serverSignature(g, method), "{")
-		g.P("return ", nilArg, errorsPackage.Ident("New"), `("method `, method.GoName, ` not implemented")`)
+		g.P("return ", nilArg, errorsPackage.Ident("New"), `("method ` + method.GoName + ` not implemented")`)
 		g.P("}")
 	}
 	if *requireUnimplemented {
@@ -236,7 +233,7 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P()
 
 	//Set client implementation function
-	g.P("func New", clientName, "Implementation(impl ", clientName, ") {")
+	g.P("func Set", clientName, "Implementation(impl ", clientName, ") {")
 	g.P("clientImplementation = impl")
 	g.P("}")
 
@@ -268,6 +265,10 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 		g.P("mustEmbedUnimplemented", serverType, "()")
 	}
 	g.P("}")
+	g.P()
+
+	// Variable for holding the server implementation
+	g.P("var ServerImplementation ", serverType, " = Unimplemented", serverType, "{}")
 	g.P()
 
 	// Server Unimplemented struct for forward compatibility.
@@ -312,8 +313,8 @@ func clientSignature(g *protogen.GeneratedFile, method *protogen.Method) string 
 func genUnimplementedClientMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, method *protogen.Method) {
 	service := method.Parent
 
-	g.P("func (c *unimplemented", service.GoName, "Client) ", clientSignature(g, method), "{")
-	g.P("return nil, ", errorsPackage.Ident("New"), `("Method ", service.GoName, "Client ", "is not implemented")`)
+	g.P("func (unimplemented", service.GoName, "Client) ", clientSignature(g, method), "{")
+	g.P("return nil, ", errorsPackage.Ident("New"), `("Method ` + service.GoName + `Client is not implemented")`)
 	g.P("}")
 	g.P()
 
