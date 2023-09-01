@@ -11,6 +11,8 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
+// https://eli.thegreenplace.net/2021/rewriting-go-source-code-with-ast-tooling/
+
 type srcRewriter struct {
 	Rewriter
 }

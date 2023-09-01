@@ -39,7 +39,7 @@ type GreeterClient interface {
 
 type unimplementedGreeterClient struct{}
 
-func (c *unimplementedGreeterClient) SayHello(ctx context.Context, in *HelloRequest, opts ...interface{}) (*HelloReply, error) {
+func (unimplementedGreeterClient) SayHello(ctx context.Context, in *HelloRequest, opts ...interface{}) (*HelloReply, error) {
 	return nil, errors.New("Method GreeterClient is not implemented")
 }
 

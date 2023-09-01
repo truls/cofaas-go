@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 	"testing"
+
+	opt "github.com/moznion/go-optional"
 )
 
 var (
@@ -27,7 +29,7 @@ func testRewriter(t *testing.T, f string) {
 		t.Error(err)
 	}
 
-	compareGoldenFile(t, f, func(file string) (string, error) {
+	compareGoldenFile(t, f, nil, func(file string, a2 opt.Option[string]) (string, error) {
 		return rewrite(file, r)
 	}, *update, *verbose)
 

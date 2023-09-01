@@ -355,53 +355,6 @@ func genClientMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 		panic("Streaming methods are not supported")
 	}
 
-	// genSend := method.Desc.IsStreamingClient()
-	// genRecv := method.Desc.IsStreamingServer()
-	// genCloseAndRecv := !method.Desc.IsStreamingServer()
-
-	// Stream auxiliary types and methods.
-	// g.P("type ", service.GoName, "_", method.GoName, "Client interface {")
-	// if genSend {
-	// 	g.P("Send(*", method.Input.GoIdent, ") error")
-	// }
-	// if genRecv {
-	// 	g.P("Recv() (*", method.Output.GoIdent, ", error)")
-	// }
-	// if genCloseAndRecv {
-	// 	g.P("CloseAndRecv() (*", method.Output.GoIdent, ", error)")
-	// }
-	// g.P(grpcPackage.Ident("ClientStream"))
-	// g.P("}")
-	// g.P()
-
-	// g.P("type ", streamType, " struct {")
-	// g.P(grpcPackage.Ident("ClientStream"))
-	// g.P("}")
-	// g.P()
-
-	// if genSend {
-	// 	g.P("func (x *", streamType, ") Send(m *", method.Input.GoIdent, ") error {")
-	// 	g.P("return x.ClientStream.SendMsg(m)")
-	// 	g.P("}")
-	// 	g.P()
-	// }
-	// if genRecv {
-	// 	g.P("func (x *", streamType, ") Recv() (*", method.Output.GoIdent, ", error) {")
-	// 	g.P("m := new(", method.Output.GoIdent, ")")
-	// 	g.P("if err := x.ClientStream.RecvMsg(m); err != nil { return nil, err }")
-	// 	g.P("return m, nil")
-	// 	g.P("}")
-	// 	g.P()
-	// }
-	// if genCloseAndRecv {
-	// 	g.P("func (x *", streamType, ") CloseAndRecv() (*", method.Output.GoIdent, ", error) {")
-	// 	g.P("if err := x.ClientStream.CloseSend(); err != nil { return nil, err }")
-	// 	g.P("m := new(", method.Output.GoIdent, ")")
-	// 	g.P("if err := x.ClientStream.RecvMsg(m); err != nil { return nil, err }")
-	// 	g.P("return m, nil")
-	// 	g.P("}")
-	// 	g.P()
-	// }
 }
 
 func serverSignature(g *protogen.GeneratedFile, method *protogen.Method) string {
@@ -430,68 +383,6 @@ func genServerMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	service := method.Parent
 	hname := fmt.Sprintf("_%s_%s_Handler", service.GoName, method.GoName)
 
-	// if !method.Desc.IsStreamingClient() && !method.Desc.IsStreamingServer() {
-	// 	g.P("func ", hnameFuncNameFormatter(hname), "(srv interface{}, ctx ", contextPackage.Ident("Context"), ", dec func(interface{}) error, interceptor ", grpcPackage.Ident("UnaryServerInterceptor"), ") (interface{}, error) {")
-	// 	g.P("return nil, nil")
-	// 	g.P()
-	// 	return hname
-	// }
-	// streamType := unexport(service.GoName) + method.GoName + "Server"
-	// g.P("func ", hnameFuncNameFormatter(hname), "(srv interface{}, stream ", grpcPackage.Ident("ServerStream"), ") error {")
-	// if !method.Desc.IsStreamingClient() {
-	// 	g.P("m := new(", method.Input.GoIdent, ")")
-	// 	g.P("if err := stream.RecvMsg(m); err != nil { return err }")
-	// 	g.P("return srv.(", service.GoName, "Server).", method.GoName, "(m, &", streamType, "{stream})")
-	// } else {
-	// 	g.P("return srv.(", service.GoName, "Server).", method.GoName, "(&", streamType, "{stream})")
-	// }
-	// g.P("}")
-	// g.P()
-
-	// genSend := method.Desc.IsStreamingServer()
-	// genSendAndClose := !method.Desc.IsStreamingServer()
-	// genRecv := method.Desc.IsStreamingClient()
-
-	// // Stream auxiliary types and methods.
-	// g.P("type ", service.GoName, "_", method.GoName, "Server interface {")
-	// if genSend {
-	// 	g.P("Send(*", method.Output.GoIdent, ") error")
-	// }
-	// if genSendAndClose {
-	// 	g.P("SendAndClose(*", method.Output.GoIdent, ") error")
-	// }
-	// if genRecv {
-	// 	g.P("Recv() (*", method.Input.GoIdent, ", error)")
-	// }
-	// g.P(grpcPackage.Ident("ServerStream"))
-	// g.P("}")
-	// g.P()
-
-	// g.P("type ", streamType, " struct {")
-	// g.P(grpcPackage.Ident("ServerStream"))
-	// g.P("}")
-	// g.P()
-
-	// if genSend {
-	// 	g.P("func (x *", streamType, ") Send(m *", method.Output.GoIdent, ") error {")
-	// 	g.P("return x.ServerStream.SendMsg(m)")
-	// 	g.P("}")
-	// 	g.P()
-	// }
-	// if genSendAndClose {
-	// 	g.P("func (x *", streamType, ") SendAndClose(m *", method.Output.GoIdent, ") error {")
-	// 	g.P("return x.ServerStream.SendMsg(m)")
-	// 	g.P("}")
-	// 	g.P()
-	// }
-	// if genRecv {
-	// 	g.P("func (x *", streamType, ") Recv() (*", method.Input.GoIdent, ", error) {")
-	// 	g.P("m := new(", method.Input.GoIdent, ")")
-	// 	g.P("if err := x.ServerStream.RecvMsg(m); err != nil { return nil, err }")
-	// 	g.P("return m, nil")
-	// 	g.P("}")
-	// 	g.P()
-	// }
 
 	return hname
 }

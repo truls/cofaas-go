@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/nmrshll/go-cp v0.0.0-20180115193924-61436d3b7cfa
+	github.com/otiai10/copy v1.12.0
 	github.com/sergi/go-diff v1.3.1
 	google.golang.org/protobuf v1.31.0
 )

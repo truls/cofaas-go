@@ -1,0 +1,46 @@
+package main
+
+import (
+	gen "cofaas/application/component/gen"
+	helloworld "cofaas/proto/helloworld"
+	prodcon "cofaas/proto/prodcon"
+	fmt "fmt"
+)
+
+type helloworldImpl struct{}
+type prodconClientImpl struct{}
+
+func init() {
+	a := helloworldImpl{}
+	gen.SetExportsCofaasApplicationGreeter(a)
+
+	c := prodconClientImpl{}
+	prodcon.SetProducerConsumerClientImplementation(c)
+}
+
+func (helloworldImpl) InitComponent() {
+	impl.Main()
+	gen.CofaasApplicationProducerConsumerInitComponent()
+}
+
+func (helloworldImpl) SayHello(arg gen.CofaasApplicationGreeterHelloRequest) gen.Result[gen.CofaasApplicationGreeterHelloReply, int32] {
+	param := helloworld.HelloRequest{Name: arg.Name}
+	res, err := helloworld.ServerImplementation.SayHello(contect.TODO(), &param)
+	if err != nil {
+		return gen.Result[gen.CofaasApplicationGreeterHelloReply, int32]{Kind: gen.Err, Err: 1, Val: gen.CofaasApplicationGreeterHelloReply{}}
+	}
+
+	return gen.Result[gen.CofaasApplicationGreeterHelloReply, int32]{Kind: gen.Ok, Err: 0, Val: gen.CofaasApplicationGreeterHelloReply{Message: ret.Message}}
+}
+
+func (prodconClientImpl) ConsumeByte(ctx context.Context, in *prodcon.ConsumeByteRequest, opts ...interface{}) (*prodcon.ConsumeByteReply, error) {
+	param := gen.CofaasApplicationProducerConsumerConsumeByteRequest{Value: in.Value}
+	res := gen.CofaasApplicationProducerConsumerConsumeByte(param)
+	if res.IsErr() {
+		return nil, fmt.Errorf("Call ConsumeByte failed with code: %s", res.Unwrap())
+	}
+	return &prodcon.ConsumeByteReply{Value: res.Value, Length: res.Length}, nil
+}
+
+//go:generate wit-bindgen tiny-go ../../wit --world producer-interface --out-dir=gen
+func main() {}
