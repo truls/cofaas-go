@@ -17,14 +17,14 @@ type Rewritten interface {
 	Write(fileNmae string) error
 }
 
-func GetRewriter(file string) (Rewriter, error) {
+func GetRewriter(file string, protoImportReplacements map[string]string) (Rewriter, error) {
 	var rewriter Rewriter
 	if strings.HasSuffix(file, ".mod") {
 		rewriter = NewModRewriter()
 	} else if strings.HasSuffix(file, ".go") {
-		rewriter = NewSrcRewriter()
+		rewriter = NewSrcRewriter(protoImportReplacements)
 	} else {
-		return nil, errors.New("Only supports rewriting .go and .mod files")
+		return nil, errors.New("only supports rewriting .go and .mod files")
 	}
 
 	return rewriter, nil

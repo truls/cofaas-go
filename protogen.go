@@ -1,9 +1,7 @@
 package cofaas
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -11,6 +9,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/go-errors/errors"
 	opt "github.com/moznion/go-optional"
 	cp "github.com/otiai10/copy"
 )
@@ -26,21 +25,21 @@ type generator struct {
 type wrapperScript string
 
 func newWrapperScript(contents string) (wrapperScript, error) {
-	f, err := ioutil.TempFile(os.TempDir(), "*")
+	f, err := os.CreateTemp(os.TempDir(), "*")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer f.Close()
 	fname := f.Name()
-	if _, err := f.Write([]byte(fmt.Sprintf(`#!/bin/bash
+	if _, err := fmt.Fprintf(f, `#!/bin/bash
 exec %s
-`, contents))); err != nil {
+`, contents); err != nil {
 		os.Remove(fname)
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	if err := os.Chmod(f.Name(), 0755); err != nil {
 		os.Remove(fname)
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	return *(*wrapperScript)(unsafe.Pointer(&fname)), nil
 }
@@ -56,27 +55,26 @@ func (s wrapperScript) cleanup() {
 func newGenerator(file string, otherFile opt.Option[string]) (*generator, error) {
 	gen := generator{}
 
-	dir, err := ioutil.TempDir(os.TempDir(), "cofass-protogen")
+	dir, err := os.MkdirTemp("", "cofass-protogen")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, 0)
 	}
 	gen.dir = dir
-	//fmt.Println(dir)
 
 	_, fname := filepath.Split(file)
 	gen.fname = fname
 	if !strings.HasSuffix(gen.fname, ".proto") {
-		return nil, errors.New("Proto file %a must have suffix .proto")
+		return nil, errors.Wrap("proto file %a must have suffix .proto", 0)
 	}
 	gen.pkg_name = strings.TrimSuffix(gen.fname, ".proto")
 
 	if err := cp.Copy(file, filepath.Join(gen.dir, gen.fname)); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, 0)
 	}
 	if otherFile.IsSome() {
 		f := otherFile.Unwrap()
 		if err := cp.Copy(f, filepath.Join(gen.dir, filepath.Base(f))); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, 0)
 		}
 	}
 
@@ -86,18 +84,18 @@ func newGenerator(file string, otherFile opt.Option[string]) (*generator, error)
 func (*generator) runProtoc(args ...string) error {
 	protoc_path, err := exec.LookPath("protoc")
 	if err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 
 	protoc := exec.Command(protoc_path, args...)
 	output, err := protoc.CombinedOutput()
-	if err, ok := err.(*exec.ExitError); ok {
-		return errors.New(fmt.Sprintf("Running command %s Failed with code %d\n%s",
+	if err_assert, ok := err.(*exec.ExitError); ok {
+		return errors.Errorf("running command %s Failed with code %d\n%s",
 			protoc.String(),
-			err.ProcessState.ExitCode(),
-			output))
+			err_assert.ExitCode(),
+			output)
 	} else if err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 	return nil
 }
@@ -109,7 +107,7 @@ func (g *generator) getOutputFile(suffix string) string {
 func (g *generator) readOutput(fileName string) (string, error) {
 	res, err := os.ReadFile(filepath.Join(g.dir, fileName))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 
 	return string(res), nil
@@ -122,21 +120,21 @@ func (g *generator) cleanup() error {
 func GenGrpcCode(file string) (string, error) {
 	g, err := newGenerator(file, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer g.cleanup()
 	ws, err := newWrapperScript("go run github.com/truls/cofaas-go/protogen/grpc")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer ws.cleanup()
-	err = g.runProtoc("--plugin=protoc-gen-cofaas="+ws.string(),
+
+	if err := g.runProtoc("--plugin=protoc-gen-cofaas="+ws.string(),
 		"-I"+g.dir,
 		"--cofaas_opt=paths=source_relative",
 		"--cofaas_out="+g.dir,
-		g.fname)
-	if err != nil {
-		return "", err
+		g.fname); err != nil {
+		return "", errors.Wrap(err, 0)
 	}
 
 	return g.readOutput(g.getOutputFile("_grpc.pb.go"))
@@ -145,21 +143,21 @@ func GenGrpcCode(file string) (string, error) {
 func GenProtoCode(file string) (string, error) {
 	g, err := newGenerator(file, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer g.cleanup()
 	ws, err := newWrapperScript("go run github.com/truls/cofaas-go/protogen/types")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer ws.cleanup()
-	err = g.runProtoc("--plugin=protoc-gen-cofaas="+ws.string(),
+
+	if err := g.runProtoc("--plugin=protoc-gen-cofaas="+ws.string(),
 		"-I"+g.dir,
 		"--cofaas_opt=paths=source_relative",
 		"--cofaas_out="+g.dir,
-		g.fname)
-	if err != nil {
-		return "", err
+		g.fname); err != nil {
+		return "", errors.Wrap(err, 0)
 	}
 
 	return g.readOutput(g.getOutputFile(".pb.go"))
@@ -168,12 +166,13 @@ func GenProtoCode(file string) (string, error) {
 func GenComponentCode(exportFile string, importFile opt.Option[string]) (string, error) {
 	g, err := newGenerator(exportFile, importFile)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer g.cleanup()
+
 	ws, err := newWrapperScript("go run github.com/truls/cofaas-go/protogen/component")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, 0)
 	}
 	defer ws.cleanup()
 	fileArgs := []string{
@@ -187,9 +186,8 @@ func GenComponentCode(exportFile string, importFile opt.Option[string]) (string,
 		fileArgs = append(fileArgs, path.Base(importFile.Unwrap()))
 	}
 
-	err = g.runProtoc(fileArgs...)
-	if err != nil {
-		return "", err
+	if err := g.runProtoc(fileArgs...); err != nil {
+		return "", errors.Wrap(err, 0)
 	}
 
 	return g.readOutput("component.go")

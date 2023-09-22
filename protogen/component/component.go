@@ -13,6 +13,8 @@ import (
 const (
 	contextPackage = protogen.GoImportPath("context")
 	errorsPackage  = protogen.GoImportPath("errors")
+	fmtPackage  = protogen.GoImportPath("fmt")
+	implPackage = protogen.GoImportPath("cofaas/application/impl")
 )
 
 // FileDescriptorProto.package field number
@@ -49,8 +51,8 @@ func GenerateFile(gen *protogen.Plugin, exportFile *protogen.File, importFile *p
 }
 
 func generateFileContent(gen *protogen.Plugin, exportFile *protogen.File, importFile *protogen.File, g *protogen.GeneratedFile) {
-	genExportStructDecl(gen, exportFile, g)
-	genImportStructDecl(gen, importFile, g)
+	genExportStructDecl(exportFile, g)
+	genImportStructDecl(importFile, g)
 	g.P()
 
 	genInitFunc(gen, exportFile, importFile, g)
@@ -81,11 +83,11 @@ func genImportStructName(importFile *protogen.File) string {
 	return *importFile.Proto.Package + "ClientImpl"
 }
 
-func genExportStructDecl(gen *protogen.Plugin, exportFile *protogen.File, g *protogen.GeneratedFile) {
+func genExportStructDecl(exportFile *protogen.File, g *protogen.GeneratedFile) {
 	g.P("type " + genExportStructName(exportFile) + " struct{}")
 }
 
-func genImportStructDecl(gen *protogen.Plugin, importFile *protogen.File, g *protogen.GeneratedFile) {
+func genImportStructDecl(importFile *protogen.File, g *protogen.GeneratedFile) {
 	if importFile != nil {
 		g.P("type " + genImportStructName(importFile) + " struct{}")
 	}
@@ -100,7 +102,7 @@ func getInterfaceIdent(ident string, g *protogen.GeneratedFile) string {
 
 func getProtoIdent(ident string, importFile *protogen.File, g *protogen.GeneratedFile) string {
 	var base protogen.GoImportPath = "cofaas/proto/"
-	var name protogen.GoImportPath = *(*protogen.GoImportPath)(unsafe.Pointer(&importFile.GoPackageName))
+	var name = *(*protogen.GoImportPath)(unsafe.Pointer(&importFile.GoPackageName))
 	pkgName := base + name
 	return g.QualifiedGoIdent(pkgName.Ident(ident))
 }
@@ -110,7 +112,7 @@ func getProtoIdent(ident string, importFile *protogen.File, g *protogen.Generate
 func getService(gen *protogen.Plugin, file *protogen.File) *protogen.Service {
 	svcs := file.Services
 	if len(svcs) != 1 {
-		gen.Error(errors.New("Protocol must define a single service"))
+		gen.Error(errors.New("protocol must define a single service"))
 	}
 	return svcs[0]
 }
@@ -132,7 +134,7 @@ func genInitFunc(gen *protogen.Plugin, exportFile *protogen.File, importFile *pr
 
 func genInitComponent(gen *protogen.Plugin, exportFile *protogen.File, importFile *protogen.File, g *protogen.GeneratedFile) {
 	g.P("func (" + genExportStructName(exportFile) + ") InitComponent() {")
-	g.P("impl.Main()")
+	g.P(g.QualifiedGoIdent(implPackage.Ident("Main")) +"()")
 	if importFile != nil {
 		g.P(getInterfaceIdent("CofaasApplication"+getService(gen, importFile).GoName+"InitComponent", g) + "()")
 	}
@@ -142,11 +144,11 @@ func genInitComponent(gen *protogen.Plugin, exportFile *protogen.File, importFil
 func genExportHandlers(gen *protogen.Plugin, exportFile *protogen.File, g *protogen.GeneratedFile) {
 	svc := getService(gen, exportFile)
 	for _, m := range svc.Methods {
-		genExportMethod(gen, exportFile, m, g)
+		genExportMethod(exportFile, m, g)
 	}
 }
 
-func genExportMethod(gen *protogen.Plugin, exportFile *protogen.File, method *protogen.Method, g *protogen.GeneratedFile) {
+func genExportMethod(exportFile *protogen.File, method *protogen.Method, g *protogen.GeneratedFile) {
 	outputName := getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Output.GoIdent.GoName, g)
 	retType := getInterfaceIdent("Result", g) + "[" + outputName + ", int32]"
 
@@ -166,17 +168,17 @@ func genExportMethod(gen *protogen.Plugin, exportFile *protogen.File, method *pr
 func genImportHandlers(gen *protogen.Plugin, importFile *protogen.File, g *protogen.GeneratedFile) {
 	svc := getService(gen, importFile)
 	for _, m := range svc.Methods {
-		genImportMethod(gen, importFile, m, g)
+		genImportMethod(importFile, m, g)
 	}
 }
 
-func genImportMethod(gen *protogen.Plugin, importFile *protogen.File, method *protogen.Method, g *protogen.GeneratedFile) {
-	g.P("func (" +genImportStructName(importFile)+") "+method.GoName+"(ctx context.Context, in *"+getProtoIdent(method.Input.GoIdent.GoName, importFile, g)+", opts ...interface{}) (*"+getProtoIdent(method.Output.GoIdent.GoName, importFile, g)+", error) {")
+func genImportMethod(importFile *protogen.File, method *protogen.Method, g *protogen.GeneratedFile) {
+	g.P("func (" +genImportStructName(importFile)+") "+method.GoName+"(ctx "+g.QualifiedGoIdent(contextPackage.Ident("Context")) + ", in *"+getProtoIdent(method.Input.GoIdent.GoName, importFile, g)+", opts ...interface{}) (*"+getProtoIdent(method.Output.GoIdent.GoName, importFile, g)+", error) {")
 	g.P("param := " +
 		getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Input.GoIdent.GoName, g)+"{"+genParamMap(method.Input, "in")+"}")
 	g.P("res := " + getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.GoName, g)+"(param)")
 	g.P("if res.IsErr() {")
-	g.P("return nil, "+g.QualifiedGoIdent(protogen.GoImportPath("fmt").Ident("Errorf"))+`("Call `+method.GoName+` failed with code: %s", res.Unwrap())`)
+	g.P("return nil, "+g.QualifiedGoIdent(fmtPackage.Ident("Errorf"))+`("Call `+method.GoName+` failed with code: %s", res.Unwrap())`)
 	g.P("}")
 	g.P("return &"+getProtoIdent(method.Output.GoIdent.GoName, importFile, g)+"{"+genParamMap(method.Output, "res")+"}, nil")
 	g.P("}")

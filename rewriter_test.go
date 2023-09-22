@@ -24,7 +24,12 @@ func rewrite(file string, r Rewriter) (string, error) {
 }
 
 func testRewriter(t *testing.T, f string) {
-	r, err := GetRewriter(f)
+	protoReplacements := map[string]string{
+		"cofaas_orig/protos/helloworld": "cofaas/protos/helloworld",
+		"cofaas_orig/protos/prodcon":    "cofaas/protos/prodcon",
+	}
+
+	r, err := GetRewriter(f, protoReplacements)
 	if err != nil {
 		t.Error(err)
 	}

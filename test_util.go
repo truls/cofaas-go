@@ -5,8 +5,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/go-errors/errors"
 	opt "github.com/moznion/go-optional"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 func call1test(f func(string) (string, error)) func(string, opt.Option[string]) (string, error) {
@@ -42,7 +43,7 @@ func getComparison(a string, b string) string {
 	return dmp.DiffPrettyText(diffs)
 }
 
-func compareGoldenFile (t *testing.T, goldenFile1 string, extraInput opt.Option[string], transformer func(string, opt.Option[string]) (string, error), doUpdate bool, verbose bool) {
+func compareGoldenFile(t *testing.T, goldenFile1 string, extraInput opt.Option[string], transformer func(string, opt.Option[string]) (string, error), doUpdate bool, verbose bool) {
 
 	fn := getTestInput(goldenFile1)
 	fn2 := opt.Map(extraInput, getTestInput)
@@ -52,7 +53,9 @@ func compareGoldenFile (t *testing.T, goldenFile1 string, extraInput opt.Option[
 	}
 
 	actual, err := transformer(fn, fn2)
-	if err != nil {
+	if err, ok := err.(*errors.Error); err != nil && ok {
+		t.Error(errors.New(err.ErrorStack()))
+	} else if err != nil {
 		t.Error(err)
 	}
 
@@ -69,5 +72,4 @@ func compareGoldenFile (t *testing.T, goldenFile1 string, extraInput opt.Option[
 			}
 		}
 	}
-
 }
