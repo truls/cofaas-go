@@ -1,4 +1,4 @@
-package net_stub
+package net
 
 import "net"
 
