@@ -5,16 +5,20 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
-	"net"
+	"github.com/truls/cofaas-go/stubs/net"
 	"os"
 	"strconv"
 
+	"github.com/truls/cofaas-go/stubs/grpc/credentials/insecure"
+
 	ctrdlog "github.com/containerd/containerd/log"
 	log "github.com/sirupsen/logrus"
+	"github.com/truls/cofaas-go/stubs/grpc/reflection"
 
 	pb_client "cofaas/protos/prodcon"
 
 	pb "cofaas/protos/helloworld"
+	"github.com/truls/cofaas-go/stubs/grpc"
 )
 
 type producerServer struct {
@@ -123,6 +127,3 @@ func Main() {
 	}
 
 }
-
-import "github.com/truls/cofaas-go/stubs/grpc"
-import "github.com/truls/cofaas-go/stubs/net"

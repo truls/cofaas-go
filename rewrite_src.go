@@ -55,19 +55,20 @@ func (r *srcRewriter) applyFunction(c *astutil.Cursor) bool {
 		}
 	case *ast.ImportSpec:
 		im := x.Path.Value
-		if strings.Contains(im, "google.golang.org/grpc") || im == "\"net\"" {
-			c.Delete()
-		} else {
+		//if strings.Contains(im, "google.golang.org/grpc") || im == "\"net\"" {
+		// if im == "\"net\"" {
+		// 	c.Delete()
+		// } else {
 			// CHeck if import is our protocols and perform replacements
-			lookupPath := strings.Trim(im, "\"")
-			fmt.Println("Checking replacement", lookupPath)
-			dump.Print(r.protoImportReplacements)
-			if v, ok := r.protoImportReplacements[lookupPath]; ok {
-				x.Path.Value = fmt.Sprintf("\"%s\"", v)
-				c.Replace(x)
-				delete(r.protoImportReplacements, lookupPath)
-			}
+		lookupPath := strings.Trim(im, "\"")
+		fmt.Println("Checking replacement", lookupPath)
+		dump.Print(r.protoImportReplacements)
+		if v, ok := r.protoImportReplacements[lookupPath]; ok {
+			x.Path.Value = fmt.Sprintf("\"%s\"", v)
+			c.Replace(x)
+			delete(r.protoImportReplacements, lookupPath)
 		}
+		// }
 	}
 
 	return true
@@ -85,24 +86,24 @@ func (r *srcRewriter) Rewrite(file string) (Rewritten, error) {
 	astutil.Apply(f, nil, r.applyFunction)
 
 	// Add import of stub libraries to file
-	newDecls := make([]ast.Decl, len(extraPackages) + len(f.Decls))
+	// newDecls := make([]ast.Decl, len(extraPackages) + len(f.Decls))
 
-	copy(newDecls[len(extraPackages):], f.Decls)
+	// copy(newDecls[len(extraPackages):], f.Decls)
 
-	for n, pkg := range extraPackages {
-		newDecls[n] =
-			&ast.GenDecl{
-				Tok: token.IMPORT,
-				Specs: []ast.Spec{
-					&ast.ImportSpec{
-						Path: &ast.BasicLit{
-							Kind:  token.STRING,
-							Value: fmt.Sprintf("\"%s\"", pkg)}},
-				},
-			}
-	}
+	// for n, pkg := range extraPackages {
+	// 	newDecls[n] =
+	// 		&ast.GenDecl{
+	// 			Tok: token.IMPORT,
+	// 			Specs: []ast.Spec{
+	// 				&ast.ImportSpec{
+	// 					Path: &ast.BasicLit{
+	// 						Kind:  token.STRING,
+	// 						Value: fmt.Sprintf("\"%s\"", pkg)}},
+	// 			},
+	// 		}
+	// }
 
-	f.Decls = newDecls
+	// f.Decls = newDecls
 
 	if len(r.protoImportReplacements) > 0 {
 		return nil, errors.New("Some expected protocol import packages were not replaced")

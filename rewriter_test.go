@@ -27,6 +27,10 @@ func testRewriter(t *testing.T, f string) {
 	protoReplacements := map[string]string{
 		"cofaas_orig/protos/helloworld": "cofaas/protos/helloworld",
 		"cofaas_orig/protos/prodcon":    "cofaas/protos/prodcon",
+		"google.golang.org/grpc": "github.com/truls/cofaas-go/stubs/grpc",
+		"google.golang.org/grpc/reflection": "github.com/truls/cofaas-go/stubs/grpc/reflection",
+		"google.golang.org/grpc/credentials/insecure": "github.com/truls/cofaas-go/stubs/grpc/credentials/insecure",
+		"net": "github.com/truls/cofaas-go/stubs/net",
 	}
 
 	r, err := GetRewriter(f, protoReplacements)
