@@ -56,10 +56,15 @@ type goDep struct {
 
 type goModule struct {
 	replacements map[string]string
+	transformer  *transformer
 	targetDir    string
 	name         c.CofaasName
 	goExec       string
 	dependency   []goDep
+}
+
+type transformer struct {
+	deferredGoCommands []*exec.Cmd
 }
 
 type implPacakge struct {
@@ -69,7 +74,20 @@ type implPacakge struct {
 	protoPkgReplacements c.PkgReplacement
 }
 
-func newGoModule(moduleName c.CofaasName, targetDir string) (*goModule, error) {
+func newTransfoermer() *transformer {
+	return &transformer{deferredGoCommands: []*exec.Cmd{}}
+}
+
+func (t *transformer) finalize() error {
+	for _, cmd := range t.deferredGoCommands {
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to run command %s: %v, with output \n\n%s", cmd.String(), err, output)
+		}
+	}
+	return nil
+}
+
+func newGoModule(moduleName c.CofaasName, targetDir string, t *transformer) (*goModule, error) {
 	go_exec, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("could not find go executable: %v", err)
@@ -81,6 +99,7 @@ func newGoModule(moduleName c.CofaasName, targetDir string) (*goModule, error) {
 		replacements: make(map[string]string),
 		targetDir:    targetDir,
 		goExec:       go_exec,
+		transformer:  t,
 	}, nil
 }
 
@@ -88,21 +107,28 @@ func (m *goModule) writeFile(name string, contents string) error {
 	return os.WriteFile(path.Join(m.targetDir, name), []byte(contents), 0644)
 }
 
+func (m *goModule) deferGoCommand(args ...string) {
+	gocmd := exec.Command(m.goExec, args...)
+	gocmd.Dir = m.targetDir
+	t := m.transformer
+	t.deferredGoCommands = append(t.deferredGoCommands, gocmd)
+}
+
 // Runs go with specified arguments in the working directory of the module
 func (m *goModule) runGoCommand(args ...string) error {
 	gocmd := exec.Command(m.goExec, args...)
 	gocmd.Dir = m.targetDir
+	//fmt.Println("Running command in " + m.targetDir)
 	if output, err := gocmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to run command %s: %v, with output \n\n%s", gocmd.String(), err, output)
 	}
+
 	return nil
 }
 
 func (m *goModule) addReplacement(from c.CofaasName, to string) {
 	m.replacements[from.String()] = to
 }
-
-//func (m *goModule) add
 
 func (m *goModule) create() error {
 	if err := m.runGoCommand("mod", "init", m.name.String()); err != nil {
@@ -127,12 +153,10 @@ func (m *goModule) tidy() error {
 		}
 	}
 
-	// if err := m.runGoCommand("mod", "tidy"); err != nil {
-	// 	return err
-	// }
+	// Tidy commands must be run after all modules have been generated
+	m.deferGoCommand("mod", "tidy")
 
 	return nil
-	//return m.runGoCommand("vet")
 }
 
 func getProtoBaseName(protoPath string) (string, error) {
@@ -143,7 +167,7 @@ func getProtoBaseName(protoPath string) (string, error) {
 	return protoBaseName, nil
 }
 
-func genProtoModule(moduleBase string, protoFile string) (c.CofaasName, error) {
+func (t *transformer) genProtoModule(moduleBase string, protoFile string) (c.CofaasName, error) {
 	moduleBase = path.Join(moduleBase, "protos")
 	stat, err := os.Stat(moduleBase)
 	if err == nil && !stat.IsDir() {
@@ -166,7 +190,7 @@ func genProtoModule(moduleBase string, protoFile string) (c.CofaasName, error) {
 
 	modName := c.ProtoNameBase.Ident(protoBaseName)
 
-	m, err := newGoModule(modName, modulePath)
+	m, err := newGoModule(modName, modulePath, t)
 	if err != nil {
 		return "", errors.Wrap(err, 0)
 	}
@@ -186,7 +210,7 @@ func genProtoModule(moduleBase string, protoFile string) (c.CofaasName, error) {
 	return modName, m.create()
 }
 
-func genProtoComponent(
+func (t *transformer) genProtoComponent(
 	moduleBase string,
 	meta *metadata.Metadata,
 	witPath string,
@@ -197,7 +221,7 @@ func genProtoComponent(
 		return errors.Wrap(err, 0)
 	}
 
-	m, err := newGoModule(c.ComponentName, moduleBase)
+	m, err := newGoModule(c.ComponentName, moduleBase, t)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -241,13 +265,13 @@ func (m *goModule) addProtoReplacements(meta *metadata.Metadata) error {
 	return nil
 }
 
-func newImpl(dir string, pkgDir string, exportProt string, importProto opt.Option[string]) (*implPacakge, error) {
+func (t *transformer) newImpl(dir string, pkgDir string, exportProt string, importProto opt.Option[string]) (*implPacakge, error) {
 	rwr, err := c.NewPackageRewriter(pkgDir, dir)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	m, err := newGoModule(c.ImplName, rwr.ModDir)
+	m, err := newGoModule(c.ImplName, rwr.ModDir, t)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
@@ -313,33 +337,36 @@ func doTransform(exportProto string, importProto opt.Option[string], outputDir s
 	}
 
 	// Remove temporary directory in case of failure
-	// defer func() {
-	// 	if err := os.RemoveAll(dir); err != nil {
-	// 		fmt.Println(err)
-	// 		os.Exit(1)
-	// 	}
-	// }()
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}()
 
-	implPkg, err := newImpl(dir, implPath, exportProto, importProto)
+	t := newTransfoermer()
+	defer t.finalize()
+
+	implPkg, err := t.newImpl(dir, implPath, exportProto, importProto)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	if n, err := genProtoModule(dir, exportProto); err != nil {
+	if n, err := t.genProtoModule(dir, exportProto); err != nil {
 		return errors.Wrap(err, 0)
 	} else {
 		implPkg.addImportReplacement(implPkg.meta.ExportProto.Import, n.String(), nil)
 	}
 
 	if importProto.IsSome() {
-		if n, err := genProtoModule(dir, importProto.Unwrap()); err != nil {
+		if n, err := t.genProtoModule(dir, importProto.Unwrap()); err != nil {
 			return errors.Wrap(err, 0)
 		} else {
 			implPkg.addImportReplacement(implPkg.meta.ImportProto.Unwrap().Import, n.String(), nil)
 		}
 	}
 
-	if err := genProtoComponent(dir, implPkg.meta, witPath, witWorld); err != nil {
+	if err := t.genProtoComponent(dir, implPkg.meta, witPath, witWorld); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
