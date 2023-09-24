@@ -6,9 +6,8 @@ import (
 	"path"
 	"strings"
 
-	//"github.com/gookit/goutil/dump"
 	"github.com/go-errors/errors"
-	"github.com/gookit/goutil/dump"
+	opt "github.com/moznion/go-optional"
 	cp "github.com/otiai10/copy"
 
 	"github.com/truls/cofaas-go/metadata"
@@ -17,7 +16,7 @@ import (
 )
 
 const (
-	implPkgPath = "cofaas/application/impl"
+	implPkgPath  = "cofaas/application/impl"
 	metadataFile = "cofaas_metadata.yaml"
 )
 
@@ -26,6 +25,26 @@ type PkgRewriter struct {
 	pkg      *pkg.Package
 	ModDir   string
 }
+
+type PkgSpec struct {
+	Name    string
+	Version opt.Option[string]
+	// True indicates that the import is a subfolder of a module and
+	// doesn't have its own go.mod file
+	SubPkg  bool
+}
+
+func (s PkgSpec) Format() string {
+	str := strings.Builder{}
+	str.WriteString(s.Name)
+	if s.Version.IsSome() {
+		str.WriteString("@")
+		str.WriteString(s.Version.Unwrap())
+	}
+	return str.String()
+}
+
+type PkgReplacement map[string]*PkgSpec
 
 // NewPkgRewriter copies the package found in modPath to baseDir,
 // renames the package according to the cofaas module hierarchy and
@@ -90,7 +109,6 @@ func (pr *PkgRewriter) loadMetadata(implPath string) error {
 		return errors.Wrap(err, 0)
 	}
 
-	dump.Print(m)
 	pr.Metadata = m
 	return nil
 }
@@ -98,7 +116,7 @@ func (pr *PkgRewriter) loadMetadata(implPath string) error {
 func (pr *PkgRewriter) loadPackage() error {
 	cfg := pkg.Config{
 		Mode: pkg.NeedName | pkg.NeedFiles,
-		Dir: pr.ModDir}
+		Dir:  pr.ModDir}
 
 	pkgs, err := pkg.Load(&cfg, implPkgPath)
 	if err != nil {
@@ -129,7 +147,7 @@ func (pr *PkgRewriter) loadPackage() error {
 	return nil
 }
 
-func (r *PkgRewriter) Rewrite(protoReplaements map[string]string) error {
+func (r *PkgRewriter) Rewrite(protoReplaements PkgReplacement) error {
 	for _, n := range r.pkg.GoFiles {
 		rewritten, err := NewSrcRewriter(protoReplaements).Rewrite(n)
 		if err != nil {

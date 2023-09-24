@@ -51,9 +51,8 @@ type goDep struct {
 	// "github.com/truls/cofaas-go/stubs/net",
 	importPath string
 	// Version of the dependency
-	version string
+	version opt.Option[string]
 }
-
 
 type goModule struct {
 	replacements map[string]string
@@ -67,7 +66,7 @@ type implPacakge struct {
 	mod                  *goModule
 	meta                 *metadata.Metadata
 	rwr                  *c.PkgRewriter
-	protoPkgReplacements map[string]string
+	protoPkgReplacements c.PkgReplacement
 }
 
 func newGoModule(moduleName c.CofaasName, targetDir string) (*goModule, error) {
@@ -117,6 +116,13 @@ func (m *goModule) tidy() error {
 	for k, v := range m.replacements {
 		if err := m.runGoCommand("mod", "edit",
 			fmt.Sprintf("-replace=%s=%s", k, v)); err != nil {
+			return errors.Wrap(err, 0)
+		}
+	}
+
+	for _, d := range m.dependency {
+		version := d.version.TakeOr("v0.0.0")
+		if err := m.runGoCommand("mod", "edit", "-require", fmt.Sprintf("%s@%s", d.importPath, version)); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}
@@ -248,19 +254,47 @@ func newImpl(dir string, pkgDir string, exportProt string, importProto opt.Optio
 
 	m.addProtoReplacements(rwr.Metadata)
 
+	pkgVersion := opt.Some("v0.0.0-20230922142509-34101b6cc96a")
+	pkgReplacements := map[string]*c.PkgSpec{
+		"google.golang.org/grpc": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc",
+			Version: pkgVersion,
+			SubPkg: false},
+		"google.golang.org/grpc/reflection": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc/reflection",
+			Version: pkgVersion,
+			SubPkg: true},
+		"google.golang.org/grpc/credentials/insecure": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc/credentials/insecure",
+			Version: pkgVersion,
+			SubPkg: true},
+		"net": {
+			Name:    "github.com/truls/cofaas-go/stubs/net",
+			Version: pkgVersion,
+			SubPkg: false},
+	}
+
 	return &implPacakge{
 		mod:                  m,
 		meta:                 rwr.Metadata,
 		rwr:                  rwr,
-		protoPkgReplacements: make(map[string]string),
+		protoPkgReplacements: pkgReplacements,
 	}, nil
 }
 
-func (i *implPacakge) addImportReplacement(im string, replacement string) {
-	i.protoPkgReplacements[im] = replacement
+func (i *implPacakge) addImportReplacement(im string, replacement string, version opt.Option[string]) {
+	i.protoPkgReplacements[im] = &c.PkgSpec{
+		Name:    replacement,
+		Version: version}
 }
 
 func (i *implPacakge) finalize() error {
+	for _, v := range i.protoPkgReplacements {
+		if ! v.SubPkg {
+			i.mod.runGoCommand("mod", "edit", "-require="+v.Format())
+		}
+	}
+
 	if err := i.mod.tidy(); err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -294,14 +328,14 @@ func doTransform(exportProto string, importProto opt.Option[string], outputDir s
 	if n, err := genProtoModule(dir, exportProto); err != nil {
 		return errors.Wrap(err, 0)
 	} else {
-		implPkg.addImportReplacement(implPkg.meta.ExportProto.Import, n.String())
+		implPkg.addImportReplacement(implPkg.meta.ExportProto.Import, n.String(), nil)
 	}
 
 	if importProto.IsSome() {
 		if n, err := genProtoModule(dir, importProto.Unwrap()); err != nil {
 			return errors.Wrap(err, 0)
 		} else {
-			implPkg.addImportReplacement(implPkg.meta.ImportProto.Unwrap().Import, n.String())
+			implPkg.addImportReplacement(implPkg.meta.ImportProto.Unwrap().Import, n.String(), nil)
 		}
 	}
 

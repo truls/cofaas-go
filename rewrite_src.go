@@ -12,9 +12,7 @@ import (
 	"os"
 	"strings"
 
-	//"github.com/gookit/goutil/dump"
 	"github.com/go-errors/errors"
-	"github.com/gookit/goutil/dump"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -27,7 +25,7 @@ var extraPackages = []string{
 
 type srcRewriter struct {
 	Rewriter
-	protoImportReplacements map[string]string
+	protoImportReplacements PkgReplacement
 }
 
 type srcRewritten struct {
@@ -36,7 +34,7 @@ type srcRewritten struct {
 	ast_file *ast.File
 }
 
-func NewSrcRewriter(protoImportReplacements map[string]string) Rewriter {
+func NewSrcRewriter(protoImportReplacements PkgReplacement) Rewriter {
 	return &srcRewriter{
 		protoImportReplacements: protoImportReplacements,
 	}
@@ -61,10 +59,8 @@ func (r *srcRewriter) applyFunction(c *astutil.Cursor) bool {
 		// } else {
 			// CHeck if import is our protocols and perform replacements
 		lookupPath := strings.Trim(im, "\"")
-		fmt.Println("Checking replacement", lookupPath)
-		dump.Print(r.protoImportReplacements)
 		if v, ok := r.protoImportReplacements[lookupPath]; ok {
-			x.Path.Value = fmt.Sprintf("\"%s\"", v)
+			x.Path.Value = fmt.Sprintf("\"%s\"", v.Name)
 			c.Replace(x)
 			delete(r.protoImportReplacements, lookupPath)
 		}

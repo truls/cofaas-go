@@ -17,7 +17,7 @@ type Rewritten interface {
 	Write(fileNmae string) error
 }
 
-func GetRewriter(file string, protoImportReplacements map[string]string) (Rewriter, error) {
+func GetRewriter(file string, protoImportReplacements PkgReplacement) (Rewriter, error) {
 	var rewriter Rewriter
 	if strings.HasSuffix(file, ".mod") {
 		rewriter = NewModRewriter()
