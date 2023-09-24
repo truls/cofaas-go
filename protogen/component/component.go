@@ -13,8 +13,8 @@ import (
 const (
 	contextPackage = protogen.GoImportPath("context")
 	errorsPackage  = protogen.GoImportPath("errors")
-	fmtPackage  = protogen.GoImportPath("fmt")
-	implPackage = protogen.GoImportPath("cofaas/application/impl")
+	fmtPackage     = protogen.GoImportPath("fmt")
+	implPackage    = protogen.GoImportPath("cofaas/application/impl")
 )
 
 // FileDescriptorProto.package field number
@@ -134,7 +134,7 @@ func genInitFunc(gen *protogen.Plugin, exportFile *protogen.File, importFile *pr
 
 func genInitComponent(gen *protogen.Plugin, exportFile *protogen.File, importFile *protogen.File, g *protogen.GeneratedFile) {
 	g.P("func (" + genExportStructName(exportFile) + ") InitComponent() {")
-	g.P(g.QualifiedGoIdent(implPackage.Ident("Main")) +"()")
+	g.P(g.QualifiedGoIdent(implPackage.Ident("Main")) + "()")
 	if importFile != nil {
 		g.P(getInterfaceIdent("CofaasApplication"+getService(gen, importFile).GoName+"InitComponent", g) + "()")
 	}
@@ -173,15 +173,15 @@ func genImportHandlers(gen *protogen.Plugin, importFile *protogen.File, g *proto
 }
 
 func genImportMethod(importFile *protogen.File, method *protogen.Method, g *protogen.GeneratedFile) {
-	g.P("func (" +genImportStructName(importFile)+") "+method.GoName+"(ctx "+g.QualifiedGoIdent(contextPackage.Ident("Context")) + ", in *"+getProtoIdent(method.Input.GoIdent.GoName, importFile, g)+", opts ...interface{}) (*"+getProtoIdent(method.Output.GoIdent.GoName, importFile, g)+", error) {")
+	g.P("func (" + genImportStructName(importFile) + ") " + method.GoName + "(ctx " + g.QualifiedGoIdent(contextPackage.Ident("Context")) + ", in *" + getProtoIdent(method.Input.GoIdent.GoName, importFile, g) + ", opts ...interface{}) (*" + getProtoIdent(method.Output.GoIdent.GoName, importFile, g) + ", error) {")
 	g.P("param := " +
-		getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Input.GoIdent.GoName, g)+"{"+genParamMap(method.Input, "in")+"}")
-	g.P("res := " + getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.GoName, g)+"(param)")
+		getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Input.GoIdent.GoName, g) + "{" + genParamMap(method.Input, "in") + "}")
+	g.P("res := " + getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.GoName, g) + "(param)")
 	g.P("if res.IsErr() {")
-	g.P("return nil, "+g.QualifiedGoIdent(fmtPackage.Ident("Errorf"))+`("Call `+method.GoName+` failed with code: %s", res.Unwrap())`)
+	g.P("return nil, " + g.QualifiedGoIdent(fmtPackage.Ident("Errorf")) + `("Call ` + method.GoName + ` failed with code: %s", res.Unwrap())`)
 	g.P("}")
 	g.P("resu := res.Unwrap()")
-	g.P("return &"+getProtoIdent(method.Output.GoIdent.GoName, importFile, g)+"{"+genParamMap(method.Output, "resu")+"}, nil")
+	g.P("return &" + getProtoIdent(method.Output.GoIdent.GoName, importFile, g) + "{" + genParamMap(method.Output, "resu") + "}, nil")
 	g.P("}")
 }
 
