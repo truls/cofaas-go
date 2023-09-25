@@ -124,7 +124,7 @@ func (pr *PkgRewriter) loadPackage() error {
 	}
 
 	if len(pkgs) != 1 {
-		return fmt.Errorf("input module must contain only a single package")
+		return errors.Errorf("input module must contain only a single package")
 	}
 
 	p := *pkgs[0]
@@ -136,11 +136,11 @@ func (pr *PkgRewriter) loadPackage() error {
 			errs.WriteString(e.Error())
 			errs.WriteString("\n")
 		}
-		return fmt.Errorf("%s", errs.String())
+		return errors.Errorf("%s", errs.String())
 	}
 
 	if p.Name != "main" {
-		return fmt.Errorf("package must be named main not %s", p.Name)
+		return errors.Errorf("package must be named main not %s", p.Name)
 	}
 	pr.pkg = &p
 

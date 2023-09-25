@@ -74,7 +74,7 @@ func (r *srcRewriter) Rewrite(file string) (Rewritten, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, 0)
 	}
 
 	f.Name.Name = "impl"
@@ -117,7 +117,7 @@ func (r *srcRewritten) Format() (string, error) {
 func (r *srcRewritten) Write(file string) error {
 	fmtsrc, err := r.Format()
 	if err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 	return os.WriteFile(file, []byte(fmtsrc), 0644)
 }
