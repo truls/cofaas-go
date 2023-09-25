@@ -166,6 +166,10 @@ func genExportMethod(exportFile *protogen.File, method *protogen.Method, g *prot
 }
 
 func genImportHandlers(gen *protogen.Plugin, importFile *protogen.File, g *protogen.GeneratedFile) {
+	if importFile == nil {
+		return
+	}
+
 	svc := getService(gen, importFile)
 	for _, m := range svc.Methods {
 		genImportMethod(importFile, m, g)
