@@ -101,10 +101,6 @@ func (r *srcRewriter) Rewrite(file string) (Rewritten, error) {
 
 	// f.Decls = newDecls
 
-	if len(r.protoImportReplacements) > 0 {
-		return nil, errors.New("Some expected protocol import packages were not replaced")
-	}
-
 	return &srcRewritten{
 		fset:     fset,
 		ast_file: f,
