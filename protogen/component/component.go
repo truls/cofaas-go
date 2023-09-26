@@ -156,7 +156,7 @@ func genExportMethod(exportFile *protogen.File, method *protogen.Method, g *prot
 		method.GoName +
 		" (arg " + getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Input.GoIdent.GoName, g) + ") " + retType + "{")
 	g.P("param := " + getProtoIdent(method.Input.GoIdent.GoName, exportFile, g) + "{" + genParamMap(method.Input, "arg") + "}")
-	g.P("res, err := " + getProtoIdent("ServerImplementation."+method.GoName, exportFile, g) + "(context.TODO(), &param)")
+	g.P("res, err := " + getProtoIdent("ServerImplementation."+method.GoName, exportFile, g) + "(" + g.QualifiedGoIdent(contextPackage.Ident("TODO")) + "(), &param)")
 	g.P("if err != nil {")
 	g.P("return " + retType + "{Kind: " + getInterfaceIdent("Err", g) + ", Err: 1, Val: " + getInterfaceIdent("CofaasApplication"+method.Parent.GoName+method.Output.GoIdent.GoName, g) + "{}}")
 	g.P("}")
