@@ -45,6 +45,28 @@ a
 |      | go.mod
 |      | go.sum`
 
+var (
+	pkgVersion = opt.Some("v0.0.0-20230922142509-34101b6cc96a")
+	pkgReplacements = map[string]*c.PkgSpec{
+		"google.golang.org/grpc": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc",
+			Version: pkgVersion,
+			SubPkg: false},
+		"google.golang.org/grpc/reflection": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc/reflection",
+			Version: pkgVersion,
+			SubPkg: true},
+		"google.golang.org/grpc/credentials/insecure": {
+			Name:    "github.com/truls/cofaas-go/stubs/grpc/credentials/insecure",
+			Version: pkgVersion,
+			SubPkg: true},
+		"net": {
+			Name:    "github.com/truls/cofaas-go/stubs/net",
+			Version: pkgVersion,
+			SubPkg: false},
+	}
+)
+
 type goDep struct {
 	// Import path of the dependency
 	// "github.com/truls/cofaas-go/stubs/grpc",
@@ -278,25 +300,6 @@ func (t *transformer) newImpl(dir string, pkgDir string, exportProt string, impo
 
 	m.addProtoReplacements(rwr.Metadata)
 
-	pkgVersion := opt.Some("v0.0.0-20230922142509-34101b6cc96a")
-	pkgReplacements := map[string]*c.PkgSpec{
-		"google.golang.org/grpc": {
-			Name:    "github.com/truls/cofaas-go/stubs/grpc",
-			Version: pkgVersion,
-			SubPkg: false},
-		"google.golang.org/grpc/reflection": {
-			Name:    "github.com/truls/cofaas-go/stubs/grpc/reflection",
-			Version: pkgVersion,
-			SubPkg: true},
-		"google.golang.org/grpc/credentials/insecure": {
-			Name:    "github.com/truls/cofaas-go/stubs/grpc/credentials/insecure",
-			Version: pkgVersion,
-			SubPkg: true},
-		"net": {
-			Name:    "github.com/truls/cofaas-go/stubs/net",
-			Version: pkgVersion,
-			SubPkg: false},
-	}
 
 	return &implPacakge{
 		mod:                  m,
@@ -345,7 +348,6 @@ func doTransform(exportProto string, importProto opt.Option[string], outputDir s
 	}()
 
 	t := newTransfoermer()
-	defer t.finalize()
 
 	implPkg, err := t.newImpl(dir, implPath, exportProto, importProto)
 	if err != nil {
@@ -370,13 +372,18 @@ func doTransform(exportProto string, importProto opt.Option[string], outputDir s
 		return errors.Wrap(err, 0)
 	}
 
-	// Finally move temporary directory to destination
-	absDir, err := filepath.Abs(outputDir)
-	if err != nil {
+	if err := implPkg.finalize(); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	if err := implPkg.finalize(); err != nil {
+	// Run deferred go mod tidy commands
+	if err := t.finalize(); err != nil {
+		return errors.Wrap(err, 0)
+	}
+
+	// Finally move temporary directory to destination
+	absDir, err := filepath.Abs(outputDir)
+	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
@@ -387,6 +394,8 @@ func main() {
 	exportProto := flag.String("exportProto", "", "The export protocol file name")
 	importProto := flag.String("importProto", "", "The import protocol file name")
 	outputDir := flag.String("outputDir", "", "The output directory")
+	// compileComponent := flag.Bool("compileComponent", true, "Compile the wasm components")
+	// keepCode := flag.Bool("keepCode", true, "Keep the transformed code")
 	witPath := flag.String("witPath", "", "The directory containing wit files")
 	witWorld := flag.String("witWorld", "", "The WIT world to generate a component for")
 	implPath := flag.String("implPath", "", "Path to the implementation")
@@ -438,7 +447,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := doTransform(*exportProto, opt.FromNillable(importProto), *outputDir, *witPath, *witWorld, *implPath); err != nil {
+	ip := opt.Some(*importProto)
+	if *importProto == "" {
+		ip = opt.None[string]()
+	}
+
+	if err := doTransform(*exportProto, ip, *outputDir, *witPath, *witWorld, *implPath); err != nil {
 		fmt.Printf("Generating go module failed %s\n", c.FormatError(err))
 		os.Exit(1)
 	}
